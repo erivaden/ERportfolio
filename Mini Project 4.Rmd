@@ -1,0 +1,92 @@
+---
+title: "Logistic Regression - Predicting Diabetes Diagnosis"
+author: "Erick Rivadeneira"
+subtitle: "Date: 05/13/2024 "
+output: html_document
+---
+## Data Cleaning/Preparation
+For this project, a diabetes prediction dataset was utilized. However, like any data we have dealt with in this course, cleaning data and quality assurance is vital so that our interpretations can be consistent and correct. With that being said, measurements of height and weight were converted into the appropriate SI unit: meters(m) and kilograms(kg). Additionally utilizing those variables, BMI was then calculated into the BMI variable and furthermore categorized into a new variable "bmi_categorized" indicating whether the patient was underweight, normal, overweight, or obese. Additionally to make the data readable, the insurance variable which was originally denoted by numbers 0,1 and 2 was recoded to indicate whether the patient has no insurance, government insurance, or private insurance. Lastly, the smoking variable was originally denoted by numbers 1, 2, and 3, and was recoded to indicate whether the patient is a current smoker, never smoker, or ex-smoker. 
+```{r warning=FALSE, message=FALSE, results="hide"}
+library(dplyr)
+library(ggplot2)
+#import file
+diabetes <- read.csv("diabetes.csv")
+#create height.si variable
+diabetes<-mutate(diabetes, height.si= height*0.0254)
+summary(diabetes$height.si)
+#create weight.si variable
+diabetes<-mutate(diabetes, weight.si=weight*0.453592)
+summary(diabetes$weight.si)
+#create BMI variable
+diabetes<-mutate(diabetes, BMI=(weight.si/height.si^2))
+summary(diabetes$BMI)
+#create bmi_categorized column
+diabetes<-mutate(diabetes, bmi_categorized= ifelse(BMI<18.5,"underweight", 
+                                            ifelse(BMI>=18.5 & BMI<=25, "normal", 
+                                            ifelse(BMI > 25 & BMI <=30, "overweight",
+                                            ifelse(BMI>30, "obese", NA)))))
+table(diabetes$BMI,diabetes$bmi_categorized, useNA = "ifany")
+#recode insurance
+diabetes<-mutate(diabetes, insurance= ifelse(insurance==0,"none", 
+                                      ifelse(insurance==1, "government", 
+                                      ifelse(insurance==2, "private", NA))))
+table(diabetes$insurance)
+#recode smoking
+diabetes<-mutate(diabetes, smoking= ifelse(smoking==1,"current", 
+                                      ifelse(smoking==2, "never", 
+                                      ifelse(smoking==3, "ex-smoker", NA))))
+table(diabetes$smoking)
+```
+
+
+## Exploratory Data Analysis
+For this diabetes prediction study, there were 403 observations. Out of these observations, BMI was calculated and categorized; 28.5% of patients have a normal BMI, 38.3% of patients are obese, 31.0% of patients are overweight, and 2.3% of patients are underweight. 58.1% of patients are female and 41.9% of patients are male. Additionally, 15.4% of patients have diabetes while 84.6% of patients do not have diabetes. The average age of patients enrolled in this study is 47 years old as well as the average BMI of patients in this study is 28.8% which would classify them as overweight. 
+```{r warning=FALSE, message=FALSE, results="hide"}
+# num of obs and var
+dim(diabetes)
+# percentage of bmi_categorized
+prop.table(table(diabetes$bmi_categorized))*100
+# percentage of obs by gender
+prop.table(table(diabetes$gender))*100
+# percentage of obs by diabetes statys
+prop.table(table(diabetes$dm))*100
+# mean age of patients
+mean(diabetes$age, na.rm=T)
+# mean bmi of patient
+mean(diabetes$BMI, na.rm=T)
+```
+
+
+## Data Visualization
+Figure 1: "Distribution of Insurance Types" is a bar chart shows the number of observations in the different categories of the insurance types of which patients are enrolled in this study. It appears that 147 patients are enrolled in government insurance, 117 patients do not have insurance, 139 patients are enrolled in private insurance. Figure 2: "Distribution of Smoker Status" is a bar chart that shows the number of observations in the different categories of status of smoking of the patients in this study. It appears that 121 patients currently smoke, 59 patients are ex smokers, and 223 patients have never smoked. Figure 3: "Relationship between BMI and Cholesterol" is a scatter plot that shows a weak positive correlation between BMI and cholesterol and as a result the correlation coefficient is 0.09. Figure 4: Distribution of Age is a histogram that shows the frequency of age in the diabetes dataset within 5 bins. This data shows that the age distribution is skewed right. 
+```{r warning=FALSE, message=FALSE}
+library(questionr)
+
+ggplot(data=diabetes) + aes(x=insurance, fill=insurance) + geom_bar()+
+   labs(title="Figure 1: Distribution of Insurance Types",x="Insurance (Type)", y="Number of Patients Enrolled (Frequency)") + theme(plot.title = element_text(hjust = 0.5))
+
+freq(diabetes$smoking)
+ggplot(data=diabetes) + aes(x=smoking, fill=smoking) + geom_bar()+
+   labs(title="Figure 2: Distribution of Smoker Status",x="Smoking Status", y="Number of Patients(Frequency)") + theme(plot.title = element_text(hjust = 0.5))
+
+# scatter plot with trendline
+ggplot(data=diabetes) + aes(x=BMI, y=chol) + geom_point() +  geom_smooth(method=lm) +
+   labs(title="Figure 3: Relationship between BMI and Cholesterol",x="Body Mass Index (BMI)", y="Cholesterol(mg/dl)") + theme(plot.title = element_text(hjust = 0.5))
+
+# correlation coefficient
+ cor.test(diabetes$BMI, diabetes$chol, method = "pearson", conf.level = 0.95)
+ 
+ ggplot(data=diabetes) + aes(x=age) + geom_histogram(fill="blue", color="orangered", binwidth = 5)+ labs(title="Figure 4: Distribution of Age",x="Age (In Years)", y="Relative Frequency") + theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+## Logistic Regression Results
+A 1 year increase in age causes the log odds of diabetes status to increase by 0.055 holding the other independent variables constant. A change in gender from male to female increases the log odds of diabetes status by 0.245, holding the other independent variables constant. A 1 kg/m^2 increase in BMI causes the log odds of diabetes status to increase by 0.074, holding the other independent variables constant.
+```{r warning=FALSE, message=FALSE, results="hide"}
+# insert logistic regression code
+fit <- glm(dm ~ age + factor(gender) + BMI, data = diabetes, family = "binomial")
+summary(fit)
+
+
+```
+
